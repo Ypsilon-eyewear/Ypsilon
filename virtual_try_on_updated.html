@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Try-On</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    canvas { display: block; margin: 20px auto; border: 1px solid #ddd; }
+    #controls { margin: 20px; }
+    button { margin: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Ypsilon Eyewear Virtual Try-On</h1>
+  <div id="controls">
+    <button id="cameraButton">Open Camera</button>
+    <button id="uploadButton">Upload Image</button>
+  </div>
+  <video id="inputVideo" autoplay muted playsinline style="display:none;"></video>
+  <canvas id="outputCanvas"></canvas>
+
+  <script>
+    const video = document.getElementById('inputVideo');
+    const canvas = document.getElementById('outputCanvas');
+    const ctx = canvas.getContext('2d');
+    const cameraButton = document.getElementById('cameraButton');
+    const uploadButton = document.getElementById('uploadButton');
+
+    // Initialize MediaPipe FaceMesh
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+    });
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+
+    faceMesh.onResults((results) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+      if (results.multiFaceLandmarks) {
+        for (const landmarks of results.multiFaceLandmarks) {
+          for (let i = 0; i < landmarks.length; i++) {
+            const x = landmarks[i].x * canvas.width;
+            const y = landmarks[i].y * canvas.height;
+            ctx.fillStyle = 'red';
+            ctx.fillRect(x, y, 2, 2);
+          }
+        }
+      }
+    });
+
+    // Open camera
+    cameraButton.addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          video.play();
+          startFaceMesh();
+        };
+      } catch (error) {
+        alert('Error accessing the camera: ' + error.message);
+      }
+    });
+
+    function startFaceMesh() {
+      const camera = new Camera(video, {
+        onFrame: async () => {
+          await faceMesh.send({ image: video });
+        },
+        width: 1280,
+        height: 720,
+      });
+      camera.start();
+    }
+
+    // Upload image (future feature)
+    uploadButton.addEventListener('click', () => {
+      alert('Upload feature is not available yet. Stay tuned!');
+    });
+  </script>
+</body>
+</html>
